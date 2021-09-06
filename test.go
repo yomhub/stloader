@@ -8,10 +8,8 @@ import (
 // "modules\secloader"
 func main() {
 	alllst := secloader.GetList()
-	for _, tobj := range alllst {
-		fmt.Printf("%s: %s\n", tobj.Name, tobj.Address)
-		secloader.Read(tobj)
-	}
+	fmt.Printf("%s: %s\n", alllst[0].Name, alllst[0].Address)
+	secloader.Update(alllst[0])
 	// r := gin.Default()
 	// r.GET("/ping", func(c *gin.Context) {
 	// 	c.JSON(200, gin.H{

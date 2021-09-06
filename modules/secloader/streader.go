@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
-	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +15,12 @@ import (
 	"strings"
 )
 
+var DEFAULT_TEMP string
+
+func init() {
+	DEFAULT_TEMP = os.TempDir()
+}
+
 func Update(stobj STObj) {
 	// readForm will only excute ONCE in mutex way,
 	// other requests will wait until the first call of readForm is finished
@@ -24,45 +30,45 @@ func Update(stobj STObj) {
 }
 
 func writeBinary(fpath string, pstab *STTab) {
-	f, err := os.Create(fpath)
+	var temp bytes.Buffer
+	var err error
+	enc := gob.NewEncoder(&temp)
+	err = enc.Encode(*pstab)
 	if err != nil {
-		log.Fatal("Can't open file")
-	}
-	defer f.Close()
-	err = binary.Write(f, binary.LittleEndian, *pstab)
-	if err != nil {
-		log.Fatal("Write failed")
+		log.Fatalf("Failed to encode to binary: %s", err)
+
 	}
 
+	os.MkdirAll(path.Dir(fpath), os.ModePerm)
+	err = os.WriteFile(fpath, temp.Bytes(), 0666)
+	if err != nil {
+		log.Fatalf("Can't create file %s: %s", fpath, err)
+	}
 }
 
 func readBinary(fpath string, pstab *STTab) error {
 	f, err := os.Open(fpath)
 	if err != nil {
-		log.Fatal("Can't open file")
+		log.Fatalf("Can't open file %s: %s", fpath, err)
 		return err
 	}
-	err = binary.Read(f, binary.LittleEndian, pstab)
+	defer f.Close()
+	dec := gob.NewDecoder(f)
+	err = dec.Decode(pstab)
 	return err
 }
 
 func readForm(stobj STObj) {
 	fname := stobj.Name + ".bin"
 	var err error
-
-	fpath, err := os.Executable()
-	if err != nil {
-		log.Fatal("Can't get current directory")
-	}
-
-	fpath = path.Join(fpath, "cache", fname)
+	var fpath = path.Join(DEFAULT_TEMP, "cache", fname)
 	_, err = os.Stat(fpath)
 	var tabobj STTab
 	if err != nil && os.IsNotExist(err) {
 		// cache file not exist, download and process
-		resp, err := http.Get(stobj.Address)
+		resp, err := http.Get("http://" + stobj.Address)
 		if err != nil {
-			log.Fatal("Failed to download row data at %s.\n", stobj.Address)
+			log.Fatalf("Failed to download row data at %s.\n", stobj.Address)
 			return
 		}
 		defer resp.Body.Close()
@@ -70,7 +76,7 @@ func readForm(stobj STObj) {
 		// download and
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal("Failed to download row data at %s.\n", stobj.Address)
+			log.Fatalf("Failed to download row data at %s.\n", stobj.Address)
 			return
 		}
 		// buff := bufio.NewReader(resp)
@@ -98,7 +104,7 @@ func processNumTxt(stname string, styear int, stquart int, f *zip.File, pstab *S
 	var err error
 	zio, err := f.Open()
 	if err != nil {
-		log.Fatal("Failed to open zip file %s: %s.\n", f.Name, err)
+		log.Fatalf("Failed to open zip file %s: %s.\n", f.Name, err)
 		return
 	}
 	bio := bufio.NewReader(zio)
@@ -106,19 +112,20 @@ func processNumTxt(stname string, styear int, stquart int, f *zip.File, pstab *S
 	_, err = bio.ReadString('\n')
 	// columns := strings.Split(columnline, "\t")
 	var datatables = make(map[string]AccountTab)
+	var id0 uint64
+	var id1, id2, zerov uint
+	var tag, version, y4m2d2, currency string
+	var tvalue float32
 	for {
 		// tline example: 0001640334-21-000798	AccountsPayableAndAccruedLiabilitiesCurrent	us-gaap/2019	20210131	0	USD	10010.0000
 		tline, err := bio.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				log.Fatal("Err at reading file %s: %s.\n", f.Name, err)
+				log.Fatalf("Err at reading file %s: %s.\n", f.Name, err)
 			}
 			break
 		}
-		var id0 uint64
-		var id1, id2, zerov uint
-		var tag, version, y4m2d2, currency string
-		var tvalue float32
+
 		fmt.Sscanf(tline, "%d-%d-%d\t%s\t%s\t%s\t%d\t%s\t%f",
 			&id0, &id1, &id2,
 			&tag, &version, &y4m2d2,
@@ -150,7 +157,7 @@ func processNumTxt(stname string, styear int, stquart int, f *zip.File, pstab *S
 		// data[4]
 		_, ok := datatables[adsh]
 		if !ok {
-			datatables[adsh]["currency"] = currency
+			datatables[adsh] = AccountTab{"Currency": currency}
 		}
 		datatables[adsh][tag] = tvalue
 

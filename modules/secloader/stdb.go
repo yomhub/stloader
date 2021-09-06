@@ -34,19 +34,20 @@ const dbPW = `uT&$,df5s9#YDu`
 const dbName = "SEC"
 
 func init() {
+	var err error
 	// <UserName>:<UserPW>@tcp(<Address>:<Port>)/<DBName>
 	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbPW, serverAddr, serverPort, dbName)
 	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
-		log.Fatal("failed to connect to %s: %s.\n", dataSourceName, err)
+		log.Fatalf("failed to connect to %s: %s.\n", dataSourceName, err)
 	}
 	// test connection
 	err = db.Ping()
 	if err != nil {
-		log.Fatal("failed to connect to %s: %s.\n", dataSourceName, err)
+		log.Fatalf("failed to connect to %s: %s.\n", dataSourceName, err)
 	}
 	// initialize all_companies table
-	rows, err := db.Query("SELECT * FROM all_companies")
+	_, err = db.Query("SELECT * FROM all_companies")
 	if err != nil {
 		dbcmd := `CREATE TABLE all_companies 
 		(
@@ -56,26 +57,26 @@ func init() {
 			adsh CHAR(255) DEFAULT '',
 			primary key (cid0,cid1,cid2)
 		);`
-		r, err := db.Exec(dbcmd)
+		_, err = db.Exec(dbcmd)
 		if err != nil {
-			log.Fatal("failed to create table all_companies: %s.\n", err)
+			log.Fatalf("failed to create table all_companies: %s.\n", err)
 		}
 	}
-	rows.Close()
+	// rows.Close()
 	// initialize statement_time table
-	rows, err = db.Query("SELECT * FROM statement_time")
+	_, err = db.Query("SELECT * FROM statement_time")
 	if err != nil {
 		dbcmd := `CREATE TABLE statement_time 
 		(
 			date DATE NOT NULL,
 			adsh CHAR(255) DEFAULT ''
 		);`
-		r, err := db.Exec(dbcmd)
+		_, err = db.Exec(dbcmd)
 		if err != nil {
-			log.Fatal("failed to create table statement_time: %s.\n", err)
+			log.Fatalf("failed to create table statement_time: %s.\n", err)
 		}
 	}
-	rows.Close()
+	// rows.Close()
 }
 
 func ReadByCompanyID(cid CompanyID) ([]AccountTab, error) {
@@ -89,7 +90,7 @@ func ReadByCompanyID(cid CompanyID) ([]AccountTab, error) {
 	if err != nil {
 		// handle err
 		if isdebug {
-			log.Println("Error: failed to get columns of table %s: %s.", cid, err)
+			log.Printf("Error: failed to get columns of table %s: %s.\n", cid, err)
 		}
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func ReadByCompanyID(cid CompanyID) ([]AccountTab, error) {
 	colTypes, err := rows.ColumnTypes()
 	if err != nil {
 		if isdebug {
-			log.Println("Error: failed to get columns of table %s: %s.", cid, err)
+			log.Printf("Error: failed to get columns of table %s: %s.\n", cid, err)
 		}
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func ReadByCompanyID(cid CompanyID) ([]AccountTab, error) {
 		if err != nil && isdebug {
 			t := ""
 			rows.Scan(&t)
-			log.Println("Warring: fail to scan %s: %s.", t, err)
+			log.Printf("Warring: fail to scan %s: %s.\n", t, err)
 		}
 		for i, v := range colNames {
 			form[v] = datas[i]
@@ -193,7 +194,7 @@ func updateDB(cid CompanyID, year int, quarterly int, datas AccountTab) {
 
 		if err != nil {
 			if isdebug {
-				log.Println("Error: failed to create table %s: %s.", adsh, err)
+				log.Printf("Error: failed to create table %s: %s.\n", adsh, err)
 			}
 			return
 		}
@@ -207,7 +208,7 @@ func updateDB(cid CompanyID, year int, quarterly int, datas AccountTab) {
 		rows, err = db.Query("SELECT * FROM $1;", adsh)
 		if err != nil {
 			if isdebug {
-				log.Println("Error: failed to find table %s: %s.", adsh, err)
+				log.Printf("Error: failed to find table %s: %s.\n", adsh, err)
 			}
 			return
 		}
@@ -245,7 +246,7 @@ func updateDB(cid CompanyID, year int, quarterly int, datas AccountTab) {
 		_, err := db.Exec(dbcmd)
 		if err != nil {
 			if isdebug {
-				log.Println("Error: failed to alter table %s: %s.", adsh, err)
+				log.Printf("Error: failed to alter table %s: %s.\n", adsh, err)
 			}
 			return
 		}
@@ -261,7 +262,7 @@ func updateDB(cid CompanyID, year int, quarterly int, datas AccountTab) {
 	_, err = db.Exec(dbcmd)
 	if err != nil {
 		if isdebug {
-			log.Println("Error: failed to insert row to %s: %s.", adsh, err)
+			log.Printf("Error: failed to insert row to %s: %s.\n", adsh, err)
 		}
 		return
 	}
@@ -274,7 +275,7 @@ func updateDB(cid CompanyID, year int, quarterly int, datas AccountTab) {
 	_, err = db.Exec(dbcmd, year, QuartToMonth(quarterly), adsh)
 	if err != nil {
 		if isdebug {
-			log.Println("Error: failed to insert row to tatement_time: %s.", err)
+			log.Printf("Error: failed to insert row to tatement_time: %s.\n", err)
 		}
 		return
 	}

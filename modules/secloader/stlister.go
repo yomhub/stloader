@@ -15,7 +15,7 @@ func init() {
 	resp, err := http.Get(SRC_URL)
 
 	if err != nil {
-		log.Fatal("Unable to get HTTP body from %s, %s.\n", SRC_URL, err)
+		log.Fatalf("Unable to get HTTP body from %s, %s.\n", SRC_URL, err)
 		return
 	}
 
@@ -23,7 +23,7 @@ func init() {
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		log.Fatal("Unable to create goquery.Document object from %s, %s.\n", SRC_URL, err)
+		log.Fatalf("Unable to create goquery.Document object from %s, %s.\n", SRC_URL, err)
 		return
 	}
 
