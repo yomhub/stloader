@@ -23,13 +23,13 @@ func Update(stobj STObj) {
 	once.Do(func() { readForm(stobj) })
 }
 
-func writeBinary(fpath string, tabobj STTab) {
+func writeBinary(fpath string, pstab *STTab) {
 	f, err := os.Create(fpath)
 	if err != nil {
 		log.Fatal("Can't open file")
 	}
 	defer f.Close()
-	err = binary.Write(f, binary.LittleEndian, tabobj)
+	err = binary.Write(f, binary.LittleEndian, *pstab)
 	if err != nil {
 		log.Fatal("Write failed")
 	}
@@ -57,7 +57,7 @@ func readForm(stobj STObj) {
 
 	fpath = path.Join(fpath, "cache", fname)
 	_, err = os.Stat(fpath)
-
+	var tabobj STTab
 	if err != nil && os.IsNotExist(err) {
 		// cache file not exist, download and process
 		resp, err := http.Get(stobj.Address)
@@ -82,29 +82,30 @@ func readForm(stobj STObj) {
 		for _, f := range zobj.File {
 			switch strings.ToLower(f.Name[:3]) {
 			case "num":
-				processNumTxt(stobj, f)
+				processNumTxt(stobj.Name, stobj.Year, stobj.Quarterly, f, &tabobj)
 				// default:
 				// 	nil
 			}
 		}
-
+		writeBinary(fpath, &tabobj)
 	} else {
 		err = readBinary(fpath, &tabobj)
 	}
 	mapSTTab[fname] = tabobj
 }
 
-func processNumTxt(stobj STObj, f *zip.File) {
+func processNumTxt(stname string, styear int, stquart int, f *zip.File, pstab *STTab) {
+	var err error
 	zio, err := f.Open()
 	if err != nil {
 		log.Fatal("Failed to open zip file %s: %s.\n", f.Name, err)
 		return
 	}
 	bio := bufio.NewReader(zio)
-	columnline, err := bio.ReadString('\n')
 	// tab = adsh	tag	version	coreg	ddate	qtrs	uom	value	footnote
-	columns := strings.Split(columnline, "\t")
-	var datatable = make(map[string]map[string]interface{})
+	_, err = bio.ReadString('\n')
+	// columns := strings.Split(columnline, "\t")
+	var datatables = make(map[string]AccountTab)
 	for {
 		// tline example: 0001640334-21-000798	AccountsPayableAndAccruedLiabilitiesCurrent	us-gaap/2019	20210131	0	USD	10010.0000
 		tline, err := bio.ReadString('\n')
@@ -147,17 +148,20 @@ func processNumTxt(stobj STObj, f *zip.File) {
 
 		// string of 0
 		// data[4]
-		_, ok := datatable[adsh]
+		_, ok := datatables[adsh]
 		if !ok {
-			datatable[adsh]["currency"] = currency
+			datatables[adsh]["currency"] = currency
 		}
-		datatable[adsh][tag] = tvalue
+		datatables[adsh][tag] = tvalue
 
 	}
 
-	for adsh, v := range datatable {
-		updateDB(StrtoCID(adsh), stobj.Year, stobj.Quarterly, v)
+	for adsh, v := range datatables {
+		updateDB(StrtoCID(adsh), styear, stquart, v)
 	}
+
+	(*pstab).Name = stname
+	(*pstab).Datas = datatables
 
 	return
 }

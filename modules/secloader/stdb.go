@@ -27,15 +27,15 @@ import (
 
 var db *sql.DB
 
-const serverAddr = "127.0.0.1"
+const serverAddr = "app.yomhub.com"
 const serverPort = "3306"
-const dbUser = "root"
-const dbPW = "inno2021"
-const dbName = "test"
+const dbUser = "stserver"
+const dbPW = `uT&$,df5s9#YDu`
+const dbName = "SEC"
 
 func init() {
 	// <UserName>:<UserPW>@tcp(<Address>:<Port>)/<DBName>
-	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbPW, serverAddr, serverPort, dbUser)
+	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbPW, serverAddr, serverPort, dbName)
 	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
 		log.Fatal("failed to connect to %s: %s.\n", dataSourceName, err)

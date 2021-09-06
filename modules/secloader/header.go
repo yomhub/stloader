@@ -18,11 +18,14 @@ type SingleLine struct {
 	Key string
 }
 
+// account tag -> value
+type AccountTab = map[string]interface{}
+
 type STTab struct {
 	// e.g. 2020q2
 	Name string
 	// adsh -> tag -> value
-	datas map[string]map[string]interface{}
+	Datas map[string]AccountTab
 }
 
 type CompanyID struct {
@@ -37,14 +40,15 @@ type CompanyST struct {
 	Tables []AccountTab
 }
 
-type AccountTab = map[string]interface{}
-
 const SRC_URL = "https://www.sec.gov/dera/data/financial-statement-data-sets.html"
 const SRC_DOMAIN = "www.sec.gov"
 const isdebug = true
 
-// read only list, will be initilized at stlister.init
-var STObjList []STObj
+// list of all statements: [2021q2,2021q1...]
+var STObjList []STObj = make([]STObj, 0)
+
+// list of adsh
+var CompanyList []CompanyID = make([]CompanyID, 0)
 
 // maps, file name of statement -> statement's data
 // Once is an object that will perform exactly one action
